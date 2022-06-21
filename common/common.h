@@ -1,0 +1,6 @@
+#ifndef TINYSERVER_ASYNC_COMMON_H
+#define TINYSERVER_ASYNC_COMMON_H
+
+#include "buffer.h"
+
+#endif //TINYSERVER_ASYNC_COMMON_H
