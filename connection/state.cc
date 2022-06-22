@@ -10,7 +10,7 @@ State::State(Connection *conn)
 // ---------------------------------------------
 // ParseReq definitions
 
-std::regex ParseReq::req_re("^(GET|POST)\\s([^\\s]+)\\s(HTTP\\/1\\.1)$\\r\\n", std::regex::icase);
+std::regex ParseReq::req_re("^(GET|POST)\\s([^\\s]+)\\s(HTTP\\/1\\.1)\\r\\n$", std::regex::icase);
 std::regex ParseReq::headers_re("^\\s*(.+?)\\s*:\\s*(.+?)\\s*?\\r\\n$");
 ParseReq::ParseReq(Connection *conn)
     : State(conn), step(Req_line),
@@ -23,17 +23,15 @@ void ParseReq::go() {
         _conn->rSize()
     );
     _conn->read_buf().consume(_conn->rSize());
-    if (step == Body) {
-        body();
-    } else {
-        while (nextLine()) {
-            if (step == Req_line) {
-                req();
-            } else if (step == Headers) {
-                headers();
-            }
+    while (line_end < req_buffer.size() && nextLine()) {
+        if (step == Req_line) {
+            req();
+        } else if (step == Headers) {
+            headers();
         }
     }
+    if (step == Body)
+        body();
 
     if (step != OK)
         _conn->inRead();
@@ -71,10 +69,10 @@ void ParseReq::req() {
 
 void ParseReq::headers() {
     if (line_end - line_begin == 2 &&
-        req_buffer[line_begin] == '\r' && req_buffer[line_end] == '\n') {
+        req_buffer[line_begin] == '\r' && req_buffer[line_begin + 1] == '\n') {
 
         // set Content-Length
-        if (_conn->getHeader("Content-Length") != "") {
+        if (!_conn->getHeader("Content-Length").empty()) {
             try {
                 content_length = stoi(_conn->getHeader("Content-Length"), nullptr);
             } catch (const exception &e) {
@@ -87,17 +85,17 @@ void ParseReq::headers() {
     std::smatch matcher;
     if (std::regex_match(
         req_buffer.cbegin() + line_begin,
-        req_buffer.cend() + line_end,
+        req_buffer.cbegin() + line_end,
         matcher, headers_re)) {
         _conn->setHeader(matcher[1], matcher[2]);
     }
 }
 
 void ParseReq::body() {
-    if (int len = req_buffer.size() - line_end; len < content_length) {
+    if (int len = req_buffer.size() - line_begin; len < content_length) {
         _conn->inRead();
     } else if (len == content_length) {
-        _conn->setBody(string(req_buffer.begin() + line_end, req_buffer.end()));
+        _conn->setBody(string(req_buffer.begin() + line_begin, req_buffer.end()));
         step = OK;
         _conn->prepareResp();
     } else {

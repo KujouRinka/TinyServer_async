@@ -5,6 +5,7 @@
 #include <regex>
 
 class Connection;
+class ParseLineTest;
 class ParseReqTest;
 
 class State {
@@ -17,6 +18,7 @@ protected:
 };
 
 class ParseReq : public State {
+    friend class ParseLineTest;
     friend class ParseReqTest;
 public:
     explicit ParseReq(Connection *conn);
