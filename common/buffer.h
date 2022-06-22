@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 // intend to implement replaceable buffer
+/*
 class Buffer {
 public:
     ssize_t size() {
@@ -18,6 +19,6 @@ public:
         return nullptr;
     }
 };
-
+*/
 
 #endif //TINYSERVER_ASYNC_BUFFER_H
