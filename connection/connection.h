@@ -56,6 +56,8 @@ public:
     void setHeader(string key, string value);
     void setBody(string body);
 
+    void assignTask();
+
 private:
     ip::tcp::socket _remote;
 
@@ -64,26 +66,24 @@ private:
     shared_ptr<State> _state;
 
 private:
-    enum METHOD {
-        GET = 0,
-        POST,
-        HEAD,
-        PUT,
-        DELETE,
-        CONNECT,
-        OPTIONS,
-        TRACE,
-        PATCH,
-        UNKNOWN,
+    struct Request {
+        string method;
+        string path;
+        string version;
+        unordered_map<string, string> headers;
+        string body;
     };
-    METHOD _method;
-    string _path;
-    // string _version;
-    unordered_map<string, string> _headers;
-    string _body;
-private:
-    void assignTask();
+    Request _request;
 
+private:
+    struct Response {
+        string version;
+        string status;
+        string reason;
+        unordered_map<string, string> headers;
+        string body;
+    };
+    Response _response;
 };
 
 inline Buffer &Connection::read_buf() {
@@ -119,31 +119,30 @@ inline size_t Connection::wFree() {
 }
 
 inline void Connection::setMethod(const string &s) {
-    if (strcasecmp(s.c_str(), "GET") == 0) {
-        _method = GET;
-    } else if (strcasecmp(s.c_str(), "POST") == 0) {
-        _method = POST;
-    } else if (strcasecmp(s.c_str(), "HEAD") == 0) {
-        _method = HEAD;
-    } else if (strcasecmp(s.c_str(), "PUT") == 0) {
-        _method = PUT;
-    } else if (strcasecmp(s.c_str(), "DELETE") == 0) {
-        _method = DELETE;
-    } else if (strcasecmp(s.c_str(), "CONNECT") == 0) {
-        _method = CONNECT;
-    } else if (strcasecmp(s.c_str(), "OPTIONS") == 0) {
-        _method = OPTIONS;
-    } else if (strcasecmp(s.c_str(), "TRACE") == 0) {
-        _method = TRACE;
-    } else if (strcasecmp(s.c_str(), "PATCH") == 0) {
-        _method = PATCH;
-    } else {
-        _method = UNKNOWN;
-    }
+    if (strcasecmp(s.c_str(), "GET") == 0)
+        _request.method = "GET";
+    else if (strcasecmp(s.c_str(), "POST") == 0)
+        _request.method = "POST";
+    else if (strcasecmp(s.c_str(), "HEAD") == 0)
+        _request.method = "HEAD";
+    else if (strcasecmp(s.c_str(), "PUT") == 0)
+        _request.method = "PUT";
+    else if (strcasecmp(s.c_str(), "DELETE") == 0)
+        _request.method = "DELETE";
+    else if (strcasecmp(s.c_str(), "CONNECT") == 0)
+        _request.method = "CONNECT";
+    else if (strcasecmp(s.c_str(), "OPTIONS") == 0)
+        _request.method = "OPTIONS";
+    else if (strcasecmp(s.c_str(), "TRACE") == 0)
+        _request.method = "TRACE";
+    else if (strcasecmp(s.c_str(), "PATCH") == 0)
+        _request.method = "PATCH";
+    else
+        _request.method = "UNKNOWN";
 }
 
 inline void Connection::setPath(string s) {
-    _path = std::move(s);
+    _request.path = std::move(s);
 }
 
 inline void Connection::setVersion(string s) {
@@ -154,18 +153,18 @@ inline string Connection::getHeader(string key) {
     for_each(key.begin(), key.end(), [](char &c) {
         c = tolower(c);
     });
-    return _headers[std::move(key)];
+    return _request.headers[std::move(key)];
 }
 
 inline void Connection::setHeader(string key, string value) {
     for_each(key.begin(), key.end(), [](char &c) {
         c = tolower(c);
     });
-    _headers.insert(make_pair(std::move(key), std::move(value)));
+    _request.headers.insert(make_pair(std::move(key), std::move(value)));
 }
 
 inline void Connection::setBody(string body) {
-    _body = std::move(body);
+    _request.body = std::move(body);
 }
 
 #endif //TINYSERVER_ASYNC_CONNECTION_H

@@ -1,5 +1,7 @@
 #include "connection.h"
 
+#include <fstream>
+
 #include "common/common.h"
 #include "state.h"
 
@@ -16,6 +18,7 @@ void Connection::inRead() {
             if (err && err != error::eof) {
                 // close conn
             }
+            // TODO: all thing pass to thread pool
             _read_buf.commit(sz);
             _state->go();
         }
@@ -29,6 +32,7 @@ void Connection::inWrite() {
             if (err && err != error::eof) {
                 // close conn
             }
+            // TODO: all thing pass to thread pool
             _write_buf.consume(sz);
             _state->go();
         }
@@ -36,7 +40,6 @@ void Connection::inWrite() {
 }
 
 void Connection::prepareResp() {
-
 }
 
 void Connection::assignTask() {

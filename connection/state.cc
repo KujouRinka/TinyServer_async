@@ -16,6 +16,7 @@ ParseReq::ParseReq(Connection *conn)
     : State(conn), step(Req_line),
       line_begin(-1), line_end(0), content_length(0), next_begin(0) {}
 
+// TODO: implement BAD handler
 void ParseReq::go() {
     // read all data
     req_buffer.append(

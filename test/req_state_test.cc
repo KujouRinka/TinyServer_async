@@ -122,19 +122,19 @@ protected:
     }
 
     string &header(string key) {
-        return conn->_headers[key];
+        return conn->_request.headers[key];
     }
 
-    Connection::METHOD method() {
-        return conn->_method;
+    string method() {
+        return conn->_request.method;
     }
 
     string &path() {
-        return conn->_path;
+        return conn->_request.path;
     }
 
     string &body() {
-        return conn->_body;
+        return conn->_request.body;
     }
 
     string &buffer() {
@@ -186,7 +186,7 @@ TEST_F(ParseReqTest, parseReqTest) {
     EXPECT_EQ(step(), 1);   // Headers
     EXPECT_EQ(line_begin(), req_line.size() + headers.size() - 8);
     EXPECT_EQ(line_end(), req_line.size() + headers.size());
-    EXPECT_EQ(method(), 0); // GET
+    EXPECT_EQ(method(), "GET"); // GET
     EXPECT_EQ(path(), "/helloworld");
     EXPECT_EQ(header("k1"), "v1");
     EXPECT_EQ(header("k2"), "v2");
@@ -224,6 +224,6 @@ TEST_F(ParseReqTest, parseReqTest) {
     req->go();
     EXPECT_EQ(line_begin(), req_line.size() + headers.size() + ex.size()) << "should be: " << req_line[line_begin()];
     EXPECT_EQ(line_end(), req_line.size() + headers.size() + ex.size() + body_msg.size() + 2);
-    EXPECT_EQ(step(), 4);   // Body
+    EXPECT_EQ(step(), 4);   // OK
     EXPECT_EQ(body(), body_msg + "12");
 }
