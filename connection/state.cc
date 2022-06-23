@@ -1,6 +1,7 @@
 #include "state.h"
 
 #include "connection.h"
+#include "common/buffer.h"
 
 // ---------------------------------------------
 // State definitions
@@ -59,8 +60,8 @@ void ParseReq::req() {
         req_buffer.cbegin() + line_begin,
         req_buffer.cbegin() + line_end,
         matcher, req_re)) {
-        _conn->setMethod(matcher[1]);
-        _conn->setPath(matcher[2]);
+        _conn->setReqMethod(matcher[1]);
+        _conn->setReqPath(matcher[2]);
         // _conn->setVersion(matcher[3]);
         step = Headers;
     } else {
@@ -73,9 +74,9 @@ void ParseReq::headers() {
         req_buffer[line_begin] == '\r' && req_buffer[line_begin + 1] == '\n') {
 
         // set Content-Length
-        if (!_conn->getHeader("Content-Length").empty()) {
+        if (!_conn->getReqHeader("Content-Length").empty()) {
             try {
-                content_length = stoi(_conn->getHeader("Content-Length"), nullptr);
+                content_length = stoi(_conn->getReqHeader("Content-Length"), nullptr);
             } catch (const exception &e) {
                 // bad
             }
@@ -88,7 +89,7 @@ void ParseReq::headers() {
         req_buffer.cbegin() + line_begin,
         req_buffer.cbegin() + line_end,
         matcher, headers_re)) {
-        _conn->setHeader(matcher[1], matcher[2]);
+        _conn->setReqHeader(matcher[1], matcher[2]);
     }
 }
 
@@ -96,7 +97,7 @@ void ParseReq::body() {
     if (int len = req_buffer.size() - line_begin; len < content_length) {
         _conn->inRead();
     } else if (len == content_length) {
-        _conn->setBody(string(req_buffer.begin() + line_begin, req_buffer.end()));
+        _conn->setReqBody(string(req_buffer.begin() + line_begin, req_buffer.end()));
         step = OK;
         _conn->prepareResp();
     } else {
@@ -105,23 +106,23 @@ void ParseReq::body() {
 }
 
 // ---------------------------------------------
-// ParseRead definitions
+// Writing definitions
 
-ParseRead::ParseRead(Connection *conn)
-    : State(conn) {}
+Responding::Responding(Connection *conn)
+    : State(conn), os(&_conn->_write_buf) {}
 
-void ParseRead::go() {
-
-}
-
-// ---------------------------------------------
-// ParseWrite definitions
-
-ParseWrite::ParseWrite(Connection *conn)
-    : State(conn) {}
-
-void ParseWrite::go() {
-
+void Responding::go() {
+    auto read_n = _conn->wFree();
+    if (read_n > 0) {
+        string data = _conn->_resp_buf->get(read_n);
+        if (data.empty()) {
+            // _conn->_state = make_shared<Closing>(_conn);
+            // TODO: close connection
+            return;
+        }
+        os << data;
+    }
+    _conn->inWrite();
 }
 
 // ---------------------------------------------

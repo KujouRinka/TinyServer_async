@@ -12,9 +12,28 @@ using namespace std;
 using namespace asio;
 
 using Buffer = asio::streambuf;
+
 class State;
 class ParseReqTest;
 class MockConnection;
+class BlockBuffer;
+class Responding;
+
+struct Request {
+    string method;
+    string path;
+    string version;
+    unordered_map<string, string> headers;
+    string body;
+};
+
+struct Response {
+    string version;
+    string status;
+    string reason;
+    unordered_map<string, string> headers;
+    string body;
+};
 
 enum ConnStat {
     ParsingReq = 0,
@@ -31,6 +50,7 @@ constexpr size_t BUFFER_SIZE = 2048;
  */
 class Connection {
     friend class ParseReqTest;
+    friend class Responding;
 public:
     explicit Connection(ip::tcp::socket socket);
     ~Connection();
@@ -49,13 +69,6 @@ public:
     size_t wCap();
     size_t wFree();
 
-    void setMethod(const string &s);
-    void setPath(string s);
-    void setVersion(string s);
-    string getHeader(string key);
-    void setHeader(string key, string value);
-    void setBody(string body);
-
     void assignTask();
 
 private:
@@ -65,25 +78,28 @@ private:
     Buffer _write_buf;
     shared_ptr<State> _state;
 
+    shared_ptr<BlockBuffer> _resp_buf;
+    // request info
 private:
-    struct Request {
-        string method;
-        string path;
-        string version;
-        unordered_map<string, string> headers;
-        string body;
-    };
     Request _request;
 
+public:
+    void setReqMethod(const string &s);
+    void setReqPath(string s);
+    void setReqVersion(string s);
+    string getReqHeader(string key);
+    void setReqHeader(string key, string value);
+    void setReqBody(string body);
+
+    // request info
 private:
-    struct Response {
-        string version;
-        string status;
-        string reason;
-        unordered_map<string, string> headers;
-        string body;
-    };
     Response _response;
+    static unordered_map<string, string> _status_map;
+
+    void setStatus(string status_code);
+
+public:
+    void setRespHeader(string key, string value);
 };
 
 inline Buffer &Connection::read_buf() {
@@ -118,7 +134,7 @@ inline size_t Connection::wFree() {
     return wCap() - wSize();
 }
 
-inline void Connection::setMethod(const string &s) {
+inline void Connection::setReqMethod(const string &s) {
     if (strcasecmp(s.c_str(), "GET") == 0)
         _request.method = "GET";
     else if (strcasecmp(s.c_str(), "POST") == 0)
@@ -141,30 +157,39 @@ inline void Connection::setMethod(const string &s) {
         _request.method = "UNKNOWN";
 }
 
-inline void Connection::setPath(string s) {
+inline void Connection::setReqPath(string s) {
     _request.path = std::move(s);
 }
 
-inline void Connection::setVersion(string s) {
+inline void Connection::setReqVersion(string s) {
     // TODO:
 }
 
-inline string Connection::getHeader(string key) {
+inline string Connection::getReqHeader(string key) {
     for_each(key.begin(), key.end(), [](char &c) {
         c = tolower(c);
     });
     return _request.headers[std::move(key)];
 }
 
-inline void Connection::setHeader(string key, string value) {
+inline void Connection::setReqHeader(string key, string value) {
     for_each(key.begin(), key.end(), [](char &c) {
         c = tolower(c);
     });
     _request.headers.insert(make_pair(std::move(key), std::move(value)));
 }
 
-inline void Connection::setBody(string body) {
+inline void Connection::setReqBody(string body) {
     _request.body = std::move(body);
+}
+
+inline void Connection::setStatus(string status_code) {
+    _response.reason = _status_map[status_code];
+    _response.status = std::move(status_code);
+}
+
+inline void Connection::setRespHeader(string key, string value) {
+    _response.headers.insert(make_pair(std::move(key), std::move(value)));
 }
 
 #endif //TINYSERVER_ASYNC_CONNECTION_H

@@ -52,21 +52,24 @@ private:
     void body();
 };
 
-class ParseRead : public State {
+class Responding : public State {
 public:
-    explicit ParseRead(Connection *conn);
+    explicit Responding(Connection *conn);
     void go() override;
-};
 
-class ParseWrite : public State {
-public:
-    explicit ParseWrite(Connection *conn);
-    void go() override;
+private:
+    std::ostream os;
 };
 
 class Bad : public State {
 public:
     explicit Bad(Connection *conn);
+    void go() override;
+};
+
+class Closing : public State {
+public:
+    explicit Closing(Connection *conn);
     void go() override;
 };
 
