@@ -5,6 +5,6 @@ using namespace std;
 using namespace asio;
 
 int main() {
-    chdir("./root");
-    return 0;
+  chdir("./root");
+  return 0;
 }
