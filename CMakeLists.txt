@@ -39,4 +39,4 @@ enable_testing()
 
 include_directories(./)
 
-add_executable(TinyServer_async main.cpp ${src})
+add_executable(TinyServer_async main.cc ${src})
