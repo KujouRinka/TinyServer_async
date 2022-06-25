@@ -8,6 +8,9 @@
 #include "state.h"
 #include "common/common.h"
 #include "common/buffer.h"
+#include "threadpool/threadpool.h"
+
+extern ThreadPool pool;
 
 Connection::Connection(ip::tcp::socket socket)
   : _state(new ParseReq(this)), _remote(std::move(socket)),
@@ -28,8 +31,10 @@ void Connection::inRead() {
       }
       // TODO: all thing pass to thread pool
       //  by calling assignTask()
-      _read_buf.commit(sz);
-      _state->go(cap);
+      pool.appendTask([this, cap, sz]() {
+        _read_buf.commit(sz);
+        _state->go(cap);
+      });
     }
   );
 }
@@ -44,8 +49,10 @@ void Connection::inWrite() {
       }
       // TODO: all thing pass to thread pool
       //  by calling assignTask()
-      _write_buf.consume(sz);
-      _state->go(cap);
+      pool.appendTask([this, cap, sz]() {
+        _write_buf.consume(sz);
+        _state->go(cap);
+      });
     }
   );
 }

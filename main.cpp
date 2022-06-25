@@ -3,7 +3,8 @@
 #include <cstring>
 #include <asio.hpp>
 
-#include <connection/connection.h>
+#include "connection/connection.h"
+#include "threadpool/threadpool.h"
 
 using namespace std;
 using namespace asio;
@@ -12,6 +13,7 @@ io_context ctx;
 ip::tcp::endpoint listen_address;
 ip::tcp::acceptor ac(ctx);
 ip::tcp::socket so(ctx);
+ThreadPool pool;
 
 void async_listen() {
   so = ip::tcp::socket(ctx);
