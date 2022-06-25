@@ -69,6 +69,10 @@ class Connection : public enable_shared_from_this<Connection> {
   ip::tcp::socket _remote;
   Buffer _read_buf;
   Buffer _write_buf;
+  // mark is server good
+  bool _good;
+  string _bad_code;
+  // infinite state machine
   shared_ptr<State> _state;
   shared_ptr<ComposeBuffer> _resp_buf;
 
@@ -77,6 +81,7 @@ class Connection : public enable_shared_from_this<Connection> {
   Request _request;
 
  public:
+  void setBad(string bad_code);
   void setReqMethod(const string &s);
   void setReqPath(string s);
   void setReqVersion(string s);
@@ -98,6 +103,7 @@ class Connection : public enable_shared_from_this<Connection> {
   void GetHandler();
   void PostHandler();
   // TODO: add more handler
+  void BadHandler();
 };
 
 inline Buffer &Connection::read_buf() {
@@ -130,6 +136,11 @@ inline size_t Connection::wCap() {
 
 inline size_t Connection::wFree() {
   return wCap() - wSize();
+}
+
+inline void Connection::setBad(string bad_code) {
+  _good = false;
+  _bad_code = std::move(bad_code);
 }
 
 inline void Connection::setReqMethod(const string &s) {

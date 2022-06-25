@@ -25,7 +25,7 @@ void ParseReq::go(shared_ptr<Connection> holder) {
     _conn->rSize()
   );
   _conn->read_buf().consume(_conn->rSize());
-  while (line_end < req_buffer.size() && nextLine()) {
+  while (step != Bad && line_end < req_buffer.size() && nextLine()) {
     if (step == Req_line) {
       req();
     } else if (step == Headers) {
@@ -33,10 +33,14 @@ void ParseReq::go(shared_ptr<Connection> holder) {
     }
   }
   if (step == Body)
-    body(std::move(holder));
+    body(holder);
+  if (step == Bad) {
+    _conn->prepareResp(holder);
+    return;
+  }
 
   if (step != OK)
-    _conn->inRead();
+    holder->inRead();
 }
 
 bool ParseReq::nextLine() {
@@ -65,7 +69,8 @@ void ParseReq::req() {
     _conn->setReqVersion(matcher[3]);
     step = Headers;
   } else {
-    // bad
+    step = Bad;
+    _conn->setBad("400");
   }
 }
 
@@ -79,7 +84,9 @@ void ParseReq::headers() {
         content_length = stoi(_conn->getReqHeader("Content-Length"), nullptr);
         have_content_length = true;
       } catch (const exception &e) {
-        // bad
+        _conn->setBad("400");
+        step = Bad;
+        return;
       }
     }
     step = Body;
@@ -91,6 +98,9 @@ void ParseReq::headers() {
     req_buffer.cbegin() + line_end,
     matcher, headers_re)) {
     _conn->setReqHeader(matcher[1], matcher[2]);
+  } else {
+    _conn->setBad("400");
+    step = Bad;
   }
 }
 
@@ -105,7 +115,9 @@ void ParseReq::body(shared_ptr<Connection> holder) {
     step = OK;
     _conn->prepareResp(std::move(holder));
   } else {
-    // bad
+    _conn->setBad("400");
+    step = Bad;
+    _conn->prepareResp(std::move(holder));
   }
 }
 

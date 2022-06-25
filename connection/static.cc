@@ -6,4 +6,6 @@ unordered_map<string, string> Connection::_status_map = {
   {"400", "Bad Request"},
   {"404", "Not Found"},
   {"500", "Internal Server Error"},
+  {"501", "Not Implemented"},
+  {"505", "HTTP Version Not Supported"},
 };

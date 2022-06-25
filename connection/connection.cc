@@ -11,7 +11,7 @@
 
 Connection::Connection(ip::tcp::socket socket)
   : _state(new ParseReq(this)), _remote(std::move(socket)),
-    _read_buf(BUFFER_SIZE), _write_buf(BUFFER_SIZE) {}
+    _read_buf(BUFFER_SIZE), _write_buf(BUFFER_SIZE), _good(true) {}
 
 Connection::~Connection() {
   if (_remote.is_open())
@@ -51,12 +51,16 @@ void Connection::inWrite() {
 }
 
 void Connection::prepareResp(shared_ptr<Connection> holder) {
-  if (_request.method == "GET") {
+  _response.version = "HTTP/1.1";
+  if (!_good) {
+    BadHandler();
+  } else if (_request.method == "GET") {
     GetHandler();
   } else if (_request.method == "POST") {
     PostHandler();
   } else {
-    // TODO: bad request
+    setBad("501");
+    BadHandler();
   }
   _state = make_shared<Responding>(this);
   _state->go(std::move(holder));
@@ -67,7 +71,11 @@ void Connection::assignTask() {
 
 void Connection::GetHandler() {
   // redirect for main page
-  _response.version = "HTTP/1.1";
+  if (_request.version != "HTTP/1.1") {
+    setStatus("505");
+    _resp_buf.reset(new ComposeBuffer{new ResponseBlockBuffer(_response)});
+    return;
+  }
   if (_request.path == "/") {
     setStatus("302");
     setRespHeader("Location", "/index.html");
@@ -89,7 +97,6 @@ void Connection::GetHandler() {
   // int file = open(_request.path.c_str(), O_RDONLY);
   // struct stat f_stat;
   // fstat(file, &f_stat);
-  // TODO:
   file.seekg(0, ios::end);
   setRespHeader("Content-Length", to_string(file.tellg()));
   file.seekg(0, ios::beg);
@@ -102,4 +109,9 @@ void Connection::GetHandler() {
 
 void Connection::PostHandler() {
   // TODO:
+}
+
+void Connection::BadHandler() {
+  setStatus(_bad_code);
+  _resp_buf.reset(new ComposeBuffer{new ResponseBlockBuffer(_response)});
 }

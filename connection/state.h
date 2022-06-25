@@ -71,10 +71,4 @@ class Bad : public State {
   void go(shared_ptr<Connection> holder) override;
 };
 
-class Closing : public State {
- public:
-  explicit Closing(Connection *conn);
-  void go(shared_ptr<Connection> holder) override;
-};
-
 #endif //TINYSERVER_ASYNC_STATE_H
