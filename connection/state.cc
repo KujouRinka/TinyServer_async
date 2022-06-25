@@ -14,11 +14,11 @@ State::State(Connection *conn)
 std::regex ParseReq::req_re("^(GET|POST)\\s([^\\s]+)\\s(HTTP\\/1\\.1)\\r\\n$", std::regex::icase);
 std::regex ParseReq::headers_re("^\\s*(.+?)\\s*:\\s*(.+?)\\s*?\\r\\n$");
 ParseReq::ParseReq(Connection *conn)
-  : State(conn), step(Req_line),
-    line_begin(-1), line_end(0), content_length(0), next_begin(0) {}
+  : State(conn), step(Req_line), content_length(0), have_content_length(false),
+    line_begin(-1), line_end(0), next_begin(0) {}
 
 // TODO: implement BAD handler
-void ParseReq::go() {
+void ParseReq::go(shared_ptr<Connection> holder) {
   // read all data
   req_buffer.append(
     buffer_cast<const char *>(_conn->read_buf().data()),
@@ -33,7 +33,7 @@ void ParseReq::go() {
     }
   }
   if (step == Body)
-    body();
+    body(std::move(holder));
 
   if (step != OK)
     _conn->inRead();
@@ -62,7 +62,7 @@ void ParseReq::req() {
     matcher, req_re)) {
     _conn->setReqMethod(matcher[1]);
     _conn->setReqPath(matcher[2]);
-    // _conn->setVersion(matcher[3]);
+    _conn->setReqVersion(matcher[3]);
     step = Headers;
   } else {
     // bad
@@ -77,6 +77,7 @@ void ParseReq::headers() {
     if (!_conn->getReqHeader("Content-Length").empty()) {
       try {
         content_length = stoi(_conn->getReqHeader("Content-Length"), nullptr);
+        have_content_length = true;
       } catch (const exception &e) {
         // bad
       }
@@ -93,13 +94,16 @@ void ParseReq::headers() {
   }
 }
 
-void ParseReq::body() {
-  if (int len = req_buffer.size() - line_begin; len < content_length) {
+void ParseReq::body(shared_ptr<Connection> holder) {
+  if (!have_content_length) {
+    step = OK;
+    _conn->prepareResp(std::move(holder));
+  } else if (ssize_t len = req_buffer.size() - line_begin; len < content_length) {
     _conn->inRead();
   } else if (len == content_length) {
     _conn->setReqBody(string(req_buffer.begin() + line_begin, req_buffer.end()));
     step = OK;
-    _conn->prepareResp();
+    _conn->prepareResp(std::move(holder));
   } else {
     // bad
   }
@@ -111,7 +115,7 @@ void ParseReq::body() {
 Responding::Responding(Connection *conn)
   : State(conn), os(&_conn->_write_buf) {}
 
-void Responding::go() {
+void Responding::go(shared_ptr<Connection> holder) {
   auto read_n = _conn->wFree();
   if (read_n > 0) {
     string data = _conn->_resp_buf->get(read_n);
@@ -131,6 +135,6 @@ void Responding::go() {
 Bad::Bad(Connection *conn)
   : State(conn) {}
 
-void Bad::go() {
+void Bad::go(shared_ptr<Connection> holder) {
 
 }

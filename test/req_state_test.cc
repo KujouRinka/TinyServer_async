@@ -88,7 +88,7 @@ class MockConnection : public Connection {
   MockConnection(ip::tcp::socket socket) : Connection(std::move(socket)) {}
   MOCK_METHOD(void, inRead, (), (override));
   MOCK_METHOD(void, inWrite, (), (override));
-  MOCK_METHOD(void, prepareResp, (), (override));
+  MOCK_METHOD(void, prepareResp, (shared_ptr<Connection>), (override));
 };
 
 class ParseReqTest : public ::testing::Test {
@@ -171,7 +171,7 @@ TEST_F(ParseReqTest, parseReqTest) {
   string req_line = "GET /helloworld HTTP/1.1\r\n";
   read_stream << req_line;
   EXPECT_EQ(step(), 0);   // Req_line
-  req->go();
+  req->go(nullptr);
   EXPECT_EQ(line_begin(), 0);     // Req_line
   EXPECT_EQ(line_end(), req_line.size());
   EXPECT_EQ(step(), 1);   // Headers
@@ -182,7 +182,7 @@ TEST_F(ParseReqTest, parseReqTest) {
   iostream read_stream2(&read_buf());
   string headers = "k1:v1\r\nk2 : v2\r\nk3: v3\r\n";
   read_stream2 << req_line << headers;
-  req->go();
+  req->go(nullptr);
   EXPECT_EQ(step(), 1);   // Headers
   EXPECT_EQ(line_begin(), req_line.size() + headers.size() - 8);
   EXPECT_EQ(line_end(), req_line.size() + headers.size());
@@ -203,7 +203,7 @@ TEST_F(ParseReqTest, parseReqTest) {
     << headers
     << ex
     << body_msg;
-  req->go();
+  req->go(nullptr);
   EXPECT_EQ(line_begin(), req_line.size() + headers.size() + ex.size());
   EXPECT_EQ(line_end(), req_line.size() + headers.size() + ex.size() + body_msg.size());
   EXPECT_EQ(step(), 4);   // OK
@@ -215,13 +215,13 @@ TEST_F(ParseReqTest, parseReqTest) {
   iostream read_stream4(&read_buf());
   ex = "Content-Length: " + to_string(body_msg.size() + 2) + "\r\n\r\n";
   read_stream4 << req_line << headers << ex << body_msg;
-  req->go();
+  req->go(nullptr);
   EXPECT_EQ(line_begin(), req_line.size() + headers.size() + ex.size()) << "should be: " << req_line[line_begin()];
   EXPECT_EQ(line_end(), req_line.size() + headers.size() + ex.size() + body_msg.size());
   EXPECT_EQ(step(), 2);   // Body
   EXPECT_EQ(body(), "");
   read_stream4 << "12";
-  req->go();
+  req->go(nullptr);
   EXPECT_EQ(line_begin(), req_line.size() + headers.size() + ex.size()) << "should be: " << req_line[line_begin()];
   EXPECT_EQ(line_end(), req_line.size() + headers.size() + ex.size() + body_msg.size() + 2);
   EXPECT_EQ(step(), 4);   // OK

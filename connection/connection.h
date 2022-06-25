@@ -1,6 +1,7 @@
 #ifndef TINYSERVER_ASYNC_CONNECTION_H
 #define TINYSERVER_ASYNC_CONNECTION_H
 
+#include <iostream>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -16,7 +17,7 @@ using Buffer = asio::streambuf;
 class State;
 class ParseReqTest;
 class MockConnection;
-class BlockBuffer;
+class ComposeBuffer;
 class Responding;
 
 struct Request {
@@ -35,20 +36,13 @@ struct Response {
   string body;
 };
 
-enum ConnStat {
-  ParsingReq = 0,
-  ShouldRead,
-  ShouldWrite,
-  Bad,
-};
-
 constexpr size_t BUFFER_SIZE = 2048;
 
 /**
  * Connection class maintains all the state of the connection.
  * It defines member functions to handle the all.
  */
-class Connection {
+class Connection : public enable_shared_from_this<Connection> {
   friend class ParseReqTest;
   friend class Responding;
  public:
@@ -56,7 +50,7 @@ class Connection {
   ~Connection();
   virtual void inRead();
   virtual void inWrite();
-  virtual void prepareResp();
+  virtual void prepareResp(shared_ptr<Connection> holder);
 
   Buffer &read_buf();
   Buffer &write_buf();
@@ -73,12 +67,11 @@ class Connection {
 
  private:
   ip::tcp::socket _remote;
-
   Buffer _read_buf;
   Buffer _write_buf;
   shared_ptr<State> _state;
+  shared_ptr<ComposeBuffer> _resp_buf;
 
-  shared_ptr<BlockBuffer> _resp_buf;
   // request info
  private:
   Request _request;
@@ -100,6 +93,11 @@ class Connection {
 
  public:
   void setRespHeader(string key, string value);
+
+ private:
+  void GetHandler();
+  void PostHandler();
+  // TODO: add more handler
 };
 
 inline Buffer &Connection::read_buf() {
@@ -162,7 +160,7 @@ inline void Connection::setReqPath(string s) {
 }
 
 inline void Connection::setReqVersion(string s) {
-  // TODO:
+  _request.version = std::move(s);
 }
 
 inline string Connection::getReqHeader(string key) {
