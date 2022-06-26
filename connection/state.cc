@@ -11,7 +11,7 @@ State::State(Connection *conn)
 // ---------------------------------------------
 // ParseReq definitions
 
-std::regex ParseReq::req_re("^(GET|POST)\\s([^\\s]+)\\s(HTTP\\/1\\.1)\\r\\n$", std::regex::icase);
+std::regex ParseReq::req_re("^(GET|POST)\\s([^\\s]+)\\s(.+)\\r\\n$", std::regex::icase);
 std::regex ParseReq::headers_re("^\\s*(.+?)\\s*:\\s*(.+?)\\s*?\\r\\n$");
 ParseReq::ParseReq(Connection *conn)
   : State(conn), step(Req_line), content_length(0), have_content_length(false),
